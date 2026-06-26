@@ -38,6 +38,19 @@ describe("scoreSkiing", () => {
     const windy = scoreSkiing(day({ tempMax: -5, snowfallSum: 10, windSpeedMax: 70 }));
     expect(windy).toBeLessThan(calm);
   });
+
+  it.each([
+    [-25, 0],
+    [-30, 0],
+    [-10, 50],
+    [0, 50],
+    [5, 0],
+    [10, 0],
+    [-17.5, 25],
+  ] as const)("scores tempMax %i as %i at the ideal-band boundaries (no snow/wind)", (tempMax, expected) => {
+    const score = scoreSkiing(day({ tempMax, snowfallSum: 0, windSpeedMax: 0 }));
+    expect(score).toBe(expected);
+  });
 });
 
 describe("scoreSurfing", () => {
@@ -54,6 +67,21 @@ describe("scoreSurfing", () => {
     const score = scoreSurfing(day({ waveHeightMax: 0.1, wavePeriodMax: 4, windSpeedMax: 5 }));
     expect(score).toBeLessThan(10);
   });
+
+  it.each([
+    [0.3, 0],
+    [0.2, 0],
+    [1.0, 60],
+    [2.2, 60],
+    [3.5, 0],
+    [4.0, 0],
+  ] as const)(
+    "scores waveHeightMax %i as %i at the ideal-band boundaries (period/wind neutral)",
+    (waveHeightMax, expected) => {
+      const score = scoreSurfing(day({ waveHeightMax, wavePeriodMax: 5, windSpeedMax: 0 }));
+      expect(score).toBe(expected);
+    },
+  );
 });
 
 describe("scoreOutdoorSightseeing", () => {
@@ -68,6 +96,31 @@ describe("scoreOutdoorSightseeing", () => {
     const score = scoreOutdoorSightseeing(day({ tempMax: 18, weatherCode: 65, precipitationSum: 25 }));
     expect(score).toBeLessThan(20);
   });
+
+  it.each([
+    [0, 100],
+    [1, 90],
+    [2, 90],
+    [3, 90],
+    [45, 78],
+    [51, 78],
+    [61, 78],
+    [71, 78],
+    [80, 78],
+    [53, 65],
+    [63, 65],
+    [82, 65],
+    [95, 53],
+    [99, 53],
+  ] as const)(
+    "scores weather code %i (severity bucket) as %i when temp/wind/precip are neutral",
+    (weatherCode, expected) => {
+      const score = scoreOutdoorSightseeing(
+        day({ tempMax: 20, weatherCode, precipitationSum: 0, windSpeedMax: 0 }),
+      );
+      expect(score).toBe(expected);
+    },
+  );
 });
 
 describe("scoreIndoorSightseeing", () => {

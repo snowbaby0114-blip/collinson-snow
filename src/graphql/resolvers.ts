@@ -25,6 +25,10 @@ const ACTIVITY_SCORERS = {
 
 type ActivityKey = keyof typeof ACTIVITY_SCORERS;
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 function buildCityForecast(bundle: CityForecastBundle) {
   const { city, days, hasSurfData } = bundle;
   const dayInputs = days.map((row) => ({ row, input: dayInputFromRow(row) }));
@@ -89,19 +93,25 @@ export const resolvers = {
         if (err instanceof CityNotFoundError) {
           throw createGraphQLError(err.message, { extensions: { code: "NOT_FOUND" } });
         }
-        throw createGraphQLError(`Failed to fetch forecast for "${args.city}": ${(err as Error).message}`, {
+        throw createGraphQLError(`Failed to fetch forecast for "${args.city}": ${errorMessage(err)}`, {
           extensions: { code: "UPSTREAM_ERROR" },
         });
       }
     },
     cities: (_: unknown, __: unknown, context: GraphQLContext) => {
-      return context.repository.listCities().map((c) => ({
-        name: c.name,
-        country: c.country,
-        latitude: c.latitude,
-        longitude: c.longitude,
-        timezone: c.timezone,
-      }));
+      try {
+        return context.repository.listCities().map((c) => ({
+          name: c.name,
+          country: c.country,
+          latitude: c.latitude,
+          longitude: c.longitude,
+          timezone: c.timezone,
+        }));
+      } catch (err) {
+        throw createGraphQLError(`Failed to list cities: ${errorMessage(err)}`, {
+          extensions: { code: "UPSTREAM_ERROR" },
+        });
+      }
     },
   },
   Mutation: {
@@ -116,7 +126,7 @@ export const resolvers = {
         if (err instanceof CityNotFoundError) {
           throw createGraphQLError(err.message, { extensions: { code: "NOT_FOUND" } });
         }
-        throw createGraphQLError(`Failed to refresh forecast for "${args.city}": ${(err as Error).message}`, {
+        throw createGraphQLError(`Failed to refresh forecast for "${args.city}": ${errorMessage(err)}`, {
           extensions: { code: "UPSTREAM_ERROR" },
         });
       }

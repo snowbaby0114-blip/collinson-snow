@@ -65,6 +65,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function assertEqualLength(expected: number, fields: Record<string, number>): void {
+  const mismatched = Object.entries(fields).filter(([, length]) => length !== expected);
+  if (mismatched.length > 0) {
+    const detail = mismatched.map(([name, length]) => `${name}=${length}`).join(", ");
+    throw new UpstreamWeatherError(
+      `Open-Meteo daily forecast arrays have mismatched lengths (expected ${expected}): ${detail}`,
+    );
+  }
+}
+
 export class OpenMeteoClient implements WeatherDataSource {
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
@@ -131,6 +141,17 @@ export class OpenMeteoClient implements WeatherDataSource {
       throw new CityNotFoundError(query);
     }
 
+    if (
+      typeof result.name !== "string" ||
+      typeof result.latitude !== "number" ||
+      typeof result.longitude !== "number" ||
+      typeof result.timezone !== "string"
+    ) {
+      throw new UpstreamWeatherError(
+        `Open-Meteo geocoding response for "${query}" is missing required fields`,
+      );
+    }
+
     return {
       name: result.name,
       country: result.country ?? null,
@@ -165,6 +186,16 @@ export class OpenMeteoClient implements WeatherDataSource {
       };
     }>(url);
 
+    assertEqualLength(data.daily.time.length, {
+      temperature_2m_max: data.daily.temperature_2m_max.length,
+      temperature_2m_min: data.daily.temperature_2m_min.length,
+      precipitation_sum: data.daily.precipitation_sum.length,
+      snowfall_sum: data.daily.snowfall_sum.length,
+      windspeed_10m_max: data.daily.windspeed_10m_max.length,
+      windgusts_10m_max: data.daily.windgusts_10m_max.length,
+      weathercode: data.daily.weathercode.length,
+    });
+
     return data.daily.time.map((date, i) => ({
       date,
       tempMax: data.daily.temperature_2m_max[i],
@@ -187,6 +218,11 @@ export class OpenMeteoClient implements WeatherDataSource {
         wave_period_max: Array<number | null>;
       };
     }>(url);
+
+    assertEqualLength(data.daily.time.length, {
+      wave_height_max: data.daily.wave_height_max.length,
+      wave_period_max: data.daily.wave_period_max.length,
+    });
 
     const rows = data.daily.time.map((date, i) => ({
       date,
